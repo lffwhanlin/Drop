@@ -1,9 +1,6 @@
 package drop.everything.hl;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
-import java.util.UUID;
 
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
@@ -11,13 +8,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-
-import com.alibaba.fastjson.JSONObject;
 
 public class ElasticSearch {
     
@@ -26,7 +22,6 @@ public class ElasticSearch {
      * @param indexName  为索引库名，一个es集群中可以有多个索引库。 名称必须为小写
      * @param indexType  Type为索引类型，是用来区分同索引库下不同类型的数据的，一个索引库下可以有多个索引类型。
      * @param jsondata   json格式的数据集合
-     * 
      * @return
      */
     public void createIndexResponse(String indexname, String type, List<String> jsondata){
@@ -62,7 +57,7 @@ public class ElasticSearch {
     public SearchHits  search(QueryBuilder queryBuilder, String indexname, String type){
     	Client client = getClient();
         SearchResponse searchResponse = client.prepareSearch(indexname).setTypes(type)
-        .setQuery(queryBuilder)
+        .setQuery(queryBuilder).setSize(10)
         .execute()
         .actionGet();
         SearchHits hits = searchResponse.getHits();
@@ -73,15 +68,48 @@ public class ElasticSearch {
     
     public static void main(String[] args) {
     	ElasticSearch es = new ElasticSearch();
-    	//List<String> persons = es.getPersonIndex();
-    	//es.createIndexResponse("index_study", "person", persons);
-    	MatchQueryBuilder queryBuilder = QueryBuilders.matchPhraseQuery("name", "车嵌");
-    	SearchHits hits = es.search(queryBuilder, "index_study", "person");
+    	//es.addData();
+    	//es.boolQuery();
+    	es.termQuery();
+    }
+    
+    public void addData(){
+    	List<String> persons = DataUtil.productPerson();
+    	createIndexResponse("index_study", "person", persons);
+    }
+    
+    public void termQuery(){
+    	TermQueryBuilder query = QueryBuilders.termQuery("name", "韩");
+    	System.out.println(query.toString());
+    	SearchHits hits = search(query, "index_study", "person");
     	SearchHit[] searchHit = hits.getHits();
     	System.out.println("命中条数："+hits.getTotalHits());
     	if(searchHit!=null&&searchHit.length>0){
     		for(SearchHit hit : searchHit){
-    			System.out.println(hit.sourceAsString());
+    			System.out.println(hit.sourceAsString()+"	"+hit.getScore());
+    		}
+    		
+    	}
+    }
+    
+    /**
+     * 2015年8月6日
+     * 下午5:52:58
+     * TODO 多条件查询
+     */
+    public void boolQuery(){
+    	BoolQueryBuilder query = QueryBuilders.boolQuery();
+    	query.must(QueryBuilders.matchPhraseQuery("mark", "美女"));
+    	query.mustNot(QueryBuilders.matchPhraseQuery("mark", "看书"));
+    	query.should(QueryBuilders.matchPhraseQuery("mark", "美食"));
+    	query.should(QueryBuilders.matchPhraseQuery("mark", "电影"));
+    	System.out.println(query.toString());
+    	SearchHits hits = search(query, "index_study", "person");
+    	SearchHit[] searchHit = hits.getHits();
+    	System.out.println("命中条数："+hits.getTotalHits());
+    	if(searchHit!=null&&searchHit.length>0){
+    		for(SearchHit hit : searchHit){
+    			System.out.println(hit.sourceAsString()+"	"+hit.getScore());
     		}
     		
     	}
@@ -93,24 +121,4 @@ public class ElasticSearch {
     }
 
     
-    public List<String> getPersonIndex(){
-    	List<String> persons = new ArrayList<String>();
-    	for(int i=0;i<100;i++){
-    		JSONObject object = new JSONObject();
-    		object.put("id", UUID.randomUUID().toString());
-    		object.put("name",""+RandomHan.getRandomHan()+RandomHan.getRandomHan());
-    		object.put("age", new Random().nextInt(80));
-    		persons.add(object.toJSONString());
-    	}
-    	return persons;
-    }
-    
-    static class RandomHan {
-        private static Random ran = new Random();
-        private final static int delta = 0x9fa5 - 0x4e00 + 1;
-          
-        public static  char getRandomHan() {
-            return (char)(0x4e00 + ran.nextInt(delta)); 
-        }
-    }
 }
