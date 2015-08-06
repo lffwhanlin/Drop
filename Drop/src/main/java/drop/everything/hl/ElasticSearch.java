@@ -2,36 +2,24 @@ package drop.everything.hl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 
-public class ElasticSearch {
-	
-	private Client client;
+import com.alibaba.fastjson.JSONObject;
 
-    public ElasticSearch(){    
-        //使用本机做为节点
-        this("");
-    }
-    
-    public ElasticSearch(String ipAddress){
-        //集群连接超时设置
-        /*  
-              Settings settings = ImmutableSettings.settingsBuilder().put("client.transport.ping_timeout", "10s").build();
-            client = new TransportClient(settings);
-         */
-        client = new TransportClient().addTransportAddress(new InetSocketTransportAddress(ipAddress, 9300));
-    }
-    
+public class ElasticSearch {
     
     /**
      * 建立索引,索引建立好之后,会在elasticsearch-0.20.6\data\elasticsearch\nodes\0创建所以你看
@@ -43,11 +31,12 @@ public class ElasticSearch {
      */
     public void createIndexResponse(String indexname, String type, List<String> jsondata){
         //创建索引库 需要注意的是.setRefresh(true)这里一定要设置,否则第一次建立索引查找不到数据
+    	Client client = getClient();
         IndexRequestBuilder requestBuilder = client.prepareIndex(indexname, type).setRefresh(true);
         for(int i=0; i<jsondata.size(); i++){
             requestBuilder.setSource(jsondata.get(i)).execute().actionGet();
         }     
-         
+        client.close(); 
     }
     
     /**
@@ -57,7 +46,9 @@ public class ElasticSearch {
      * @return
      */
     public IndexResponse createIndexResponse(String indexname, String type,String jsondata){
+    	Client client = getClient();
         IndexResponse response = client.prepareIndex(indexname, type).setSource(jsondata).execute().actionGet();
+        client.close();
         return response;
     }
     
@@ -68,44 +59,58 @@ public class ElasticSearch {
      * @param type
      * @return
      */
-    public List<Medicine>  searcher(QueryBuilder queryBuilder, String indexname, String type){
-        List<Medicine> list = new ArrayList<Medicine>();
+    public SearchHits  search(QueryBuilder queryBuilder, String indexname, String type){
+    	Client client = getClient();
         SearchResponse searchResponse = client.prepareSearch(indexname).setTypes(type)
         .setQuery(queryBuilder)
         .execute()
         .actionGet();
-        
         SearchHits hits = searchResponse.getHits();
-        System.out.println("查询到记录数=" + hits.getTotalHits());
-        SearchHit[] searchHists = hits.getHits();
-        if(searchHists.length>0){
-            for(SearchHit hit:searchHists){
-                Integer id = (Integer)hit.getSource().get("id");
-                String name =  (String) hit.getSource().get("name");
-                String function =  (String) hit.getSource().get("funciton");
-                list.add(new Medicine(id, name, function));
-            }
-        }
-        return list;
+        client.close();
+        return hits;
     }
     
     
     public static void main(String[] args) {
     	ElasticSearch es = new ElasticSearch();
-        //List<String> jsondata = DataFactory.getInitJsonData();
-        String indexname = "indexdemo";
-        String type = "typedemo";
-        //es.createIndexResponse(indexname, type, jsondata);
-        //查询条件
-        TermQueryBuilder termQuery = QueryBuilders.termQuery("name", "感冒");
-        //QueryBuilder queryBuilder = QueryBuilders.fieldQuery("name", "感冒");
-        /*QueryBuilder queryBuilder = QueryBuilders.boolQuery()
-          .must(QueryBuilders.termQuery("id", 1));*/
-        List<Medicine> result = es.searcher(termQuery, indexname, type);
-        for(int i=0; i<result.size(); i++){
-            Medicine medicine = result.get(i);
-            System.out.println("(" + medicine.getId() + ")药品名称:" +medicine.getName() + "\t\t" + medicine.getFunction());
-        }
+    	//List<String> persons = es.getPersonIndex();
+    	//es.createIndexResponse("index_study", "person", persons);
+    	MatchQueryBuilder queryBuilder = QueryBuilders.matchPhraseQuery("name", "车嵌");
+    	SearchHits hits = es.search(queryBuilder, "index_study", "person");
+    	SearchHit[] searchHit = hits.getHits();
+    	System.out.println("命中条数："+hits.getTotalHits());
+    	if(searchHit!=null&&searchHit.length>0){
+    		for(SearchHit hit : searchHit){
+    			System.out.println(hit.sourceAsString());
+    		}
+    		
+    	}
+    }
+    
+    public Client getClient(){
+    	Client client = new TransportClient().addTransportAddress(new InetSocketTransportAddress("121.201.13.251", 9300));
+    	return client;
     }
 
+    
+    public List<String> getPersonIndex(){
+    	List<String> persons = new ArrayList<String>();
+    	for(int i=0;i<100;i++){
+    		JSONObject object = new JSONObject();
+    		object.put("id", UUID.randomUUID().toString());
+    		object.put("name",""+RandomHan.getRandomHan()+RandomHan.getRandomHan());
+    		object.put("age", new Random().nextInt(80));
+    		persons.add(object.toJSONString());
+    	}
+    	return persons;
+    }
+    
+    static class RandomHan {
+        private static Random ran = new Random();
+        private final static int delta = 0x9fa5 - 0x4e00 + 1;
+          
+        public static  char getRandomHan() {
+            return (char)(0x4e00 + ran.nextInt(delta)); 
+        }
+    }
 }

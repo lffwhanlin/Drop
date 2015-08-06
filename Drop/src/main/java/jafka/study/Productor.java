@@ -27,7 +27,12 @@ public class Productor {
 	    Producer<String, String> producer = new Producer<String, String>(config);
 	    //
 	    StringProducerData data = new StringProducerData("demo");
-	    data.add("message"+new Random().nextInt(10000000));
+	    for(int i=0;i<100;i++){
+		    
+	    	data.add("message"+new Random().nextInt(10000000));
+		   
+	    }
+	    
 	    try {
 	       producer.send(data);
 
