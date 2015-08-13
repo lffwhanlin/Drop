@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Thu Aug 13 18:00:45 CST 2015
+onejar.license.required=false
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=C\:\\Users\\bfd\\Desktop\\foolish-bird.jar
+manifest.mergeall=true
+manifest.mainclass=hadoop2hbase.mapreduce.FoolishBirdDriver
+manifest.file=<createnew>
+jarname.isextern=true
+onejar.expand=
+excludes=
+includes=
