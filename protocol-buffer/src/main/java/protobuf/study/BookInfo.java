@@ -13,7 +13,7 @@ public final class BookInfo {
       com.google.protobuf.MessageOrBuilder {
 
     /**
-     * <code>required int32 id = 1;</code>
+     * <code>required int32 id = 1;</code> 
      */
     boolean hasId();
     /**
